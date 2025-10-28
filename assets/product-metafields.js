@@ -82,7 +82,7 @@ export default class ProductMetafields extends Component {
           if (!variantItem) {
             // Create new variant meta-field item
             variantItem = this.createVariantMetafieldItem(key, value);
-            metafieldsContainer.appendChild(variantItem);
+            metafieldsContainer.insertBefore(variantItem, metafieldsContainer.firstChild);
           } else {
             // Update existing variant meta-field item
             const valueElement = variantItem.querySelector('.product-metafields__value');
