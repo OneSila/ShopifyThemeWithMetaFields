@@ -24,127 +24,116 @@ export default class ProductMetafields extends Component {
    * @param {VariantUpdateEvent} event - The variant update event
    */
   handleVariantUpdate(event) {
-    if (!event.detail?.variant) return;
+    if (!event.detail?.resource) {
+      return;
+    }
     
-    const variant = event.detail.variant;
+    const variant = event.detail.resource;
     const variantId = variant.id;
     
     // Update the data attribute to track current variant
     this.dataset.variantMetafields = variantId;
     
-    // Update meta-fields display if variant has different meta-fields
-    this.updateVariantMetafields(variant);
+    // Update meta-fields display for the selected variant
+    this.updateVariantMetafields(variantId);
   }
 
   /**
    * Updates the meta-fields display for the selected variant
-   * @param {Object} variant - The selected variant object
+   * @param {string} variantId - The selected variant ID
    */
-  updateVariantMetafields(variant) {
-    const metafieldsContainer = this.querySelector('.product-metafields__list');
-    if (!metafieldsContainer) return;
+  updateVariantMetafields(variantId) {
+    const metafieldsContainer = this.querySelector('[data-metafields-container]');
+    if (!metafieldsContainer) {
+      return;
+    }
 
-    // Get variant meta-fields
-    const variantMetafields = variant.metafields || {};
+    // Get variant meta-fields data from the script tag
+    const scriptTag = this.querySelector('[data-variant-metafields-data]');
     
-    // Update existing variant meta-field items
-    const variantItems = metafieldsContainer.querySelectorAll('[data-metafield-namespace][data-metafield-key]');
+    // Parse the variant meta-fields data
+    let variantMetafields = {};
+    if (scriptTag) {
+      try {
+        const allVariantData = JSON.parse(scriptTag.textContent);
+        variantMetafields = allVariantData[variantId.toString()] || {};
+      } catch (e) {
+        console.error('ProductMetafields: Error parsing variant metafields JSON', e);
+      }
+    }
     
+    // Hide all existing variant meta-field items
+    const variantItems = metafieldsContainer.querySelectorAll('[data-metafield-type="variant"]');
     variantItems.forEach(item => {
-      const namespace = item.dataset.metafieldNamespace;
-      const key = item.dataset.metafieldKey;
-      
-      // Check if this is a variant meta-field (not product meta-field)
-      const metafieldKey = `${namespace}.${key}`;
-      const variantMetafield = variantMetafields[metafieldKey];
-      
-      if (variantMetafield !== undefined) {
-        // Update the value display
-        const valueElement = item.querySelector('.product-metafields__value');
-        if (valueElement) {
-          valueElement.innerHTML = this.formatMetafieldValue(variantMetafield);
-        }
+      item.style.display = 'none';
+    });
+    
+    // Show variant meta-fields that are different from product meta-fields
+    Object.entries(variantMetafields).forEach(([key, value]) => {
+      if (value !== null && value !== '' && value !== undefined) {
+        // Check if this variant meta-field is different from the product meta-field
+        const productItem = metafieldsContainer.querySelector(`[data-metafield-key="${key}"][data-metafield-type="product"]`);
+        const productValue = productItem ? productItem.querySelector('.product-metafields__value')?.textContent?.trim() : null;
         
-        // Show/hide the item based on whether it has a value
-        if (variantMetafield && variantMetafield.value !== null && variantMetafield.value !== '') {
-          item.style.display = '';
-        } else {
-          item.style.display = 'none';
+        if (productValue !== value.toString()) {
+          // Find or create variant meta-field item
+          let variantItem = metafieldsContainer.querySelector(`[data-metafield-key="${key}"][data-metafield-type="variant"]`);
+          
+          if (!variantItem) {
+            // Create new variant meta-field item
+            variantItem = this.createVariantMetafieldItem(key, value);
+            metafieldsContainer.appendChild(variantItem);
+          } else {
+            // Update existing variant meta-field item
+            const valueElement = variantItem.querySelector('.product-metafields__value');
+            if (valueElement) {
+              valueElement.textContent = value;
+            }
+          }
+          
+          variantItem.style.display = '';
         }
       }
     });
   }
 
   /**
-   * Formats a meta-field value for display
-   * @param {Object} metafield - The meta-field object
-   * @returns {string} - Formatted HTML string
+   * Creates a new variant meta-field item element
+   * @param {string} key - The meta-field key
+   * @param {*} value - The meta-field value
+   * @returns {HTMLElement} - The created element
    */
-  formatMetafieldValue(metafield) {
-    if (!metafield || metafield.value === null || metafield.value === '') {
-      return '';
-    }
+  createVariantMetafieldItem(key, value) {
+    const item = document.createElement('div');
+    item.className = 'product-metafields__item product-metafields__item--variant';
+    item.setAttribute('data-metafield-key', key);
+    item.setAttribute('data-metafield-type', 'variant');
+    
+    const label = document.createElement('dt');
+    label.className = 'product-metafields__label';
+    label.textContent = this.formatMetafieldKey(key) + ':';
+    
+    const valueElement = document.createElement('dd');
+    valueElement.className = 'product-metafields__value';
+    valueElement.textContent = value;
+    
+    item.appendChild(label);
+    item.appendChild(valueElement);
+    
+    return item;
+  }
 
-    switch (metafield.type) {
-      case 'file_reference':
-        if (metafield.value.alt) {
-          return `<img src="${metafield.value.url}" alt="${metafield.value.alt}" width="300" height="auto" loading="lazy">`;
-        } else {
-          return `<a href="${metafield.value.url}" target="_blank" rel="noopener">${metafield.value.url.split('/').pop()}</a>`;
-        }
-      
-      case 'page_reference':
-      case 'product_reference':
-      case 'collection_reference':
-      case 'variant_reference':
-        return `<a href="${metafield.value.url}">${metafield.value.title}</a>`;
-      
-      case 'url':
-        return `<a href="${metafield.value}" target="_blank" rel="noopener">${metafield.value}</a>`;
-      
-      case 'json':
-        return `<pre class="product-metafields__json">${JSON.stringify(metafield.value, null, 2)}</pre>`;
-      
-      case 'boolean':
-        const booleanClass = metafield.value ? 'product-metafields__boolean--true' : 'product-metafields__boolean--false';
-        const booleanSymbol = metafield.value ? '✓' : '✗';
-        return `<span class="product-metafields__boolean ${booleanClass}">${booleanSymbol}</span>`;
-      
-      case 'date':
-      case 'date_time':
-        return new Date(metafield.value).toLocaleDateString();
-      
-      case 'number_integer':
-      case 'number_decimal':
-        return metafield.value.toLocaleString();
-      
-      case 'money':
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD'
-        }).format(metafield.value.amount / 100);
-      
-      case 'rating':
-        return `<div class="product-metafields__rating">
-          <span class="product-metafields__rating-value">${metafield.value.value}</span>
-          <span class="product-metafields__rating-scale">/ ${metafield.value.scale_max}</span>
-        </div>`;
-      
-      case 'color':
-        return `<div class="product-metafields__color">
-          <span class="product-metafields__color-swatch" style="background-color: ${metafield.value}"></span>
-          <span class="product-metafields__color-value">${metafield.value}</span>
-        </div>`;
-      
-      case 'multi_line_text_field':
-        return `<div class="product-metafields__multiline">${metafield.value.replace(/\n/g, '<br>')}</div>`;
-      
-      case 'rich_text_field':
-        return `<div class="product-metafields__richtext">${metafield.value}</div>`;
-      
-      default:
-        return metafield.value.toString();
-    }
+  /**
+   * Formats a meta-field key for display (e.g., "manufactured_in" -> "Manufactured In")
+   * @param {string} key - The meta-field key
+   * @returns {string} - Formatted key
+   */
+  formatMetafieldKey(key) {
+    return key
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 }
 

@@ -16,7 +16,21 @@
     style="{% render 'spacing-style', settings: block_settings %}"
     {{ block.shopify_attributes }}
     data-variant-metafields="{{ selected_variant.id }}"
+    data-product-id="{{ product.id }}"
   >
+    <script type="application/json" data-variant-metafields-data>
+    {
+      {%- assign first_variant = true -%}
+      {%- for variant in product.variants -%}
+        {%- assign variant_metafields = variant.metafields.onesila -%}
+        {%- if variant_metafields -%}
+          {%- unless first_variant -%},{%- endunless -%}
+          "{{ variant.id }}": {{ variant_metafields | json }}
+          {%- assign first_variant = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    }
+    </script>
     {% if block_settings.heading != blank %}
       <h3 class="product-metafields__heading {{ block_settings.heading_size }}">
         {{ block_settings.heading | escape }}
@@ -29,7 +43,7 @@
       </p>
     {% endif %}
     
-    <dl class="product-metafields__list">
+    <dl class="product-metafields__list" data-metafields-container>
       {%- comment -%} Display product meta-fields {%- endcomment -%}
       {%- if onesila_metafields -%}
         {%- for metafield_pair in onesila_metafields -%}
@@ -37,7 +51,7 @@
           {%- assign metafield_value = metafield_pair[1] -%}
           
           {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
-            <div class="product-metafields__item">
+            <div class="product-metafields__item" data-metafield-key="{{ metafield_key }}" data-metafield-type="product">
               <dt class="product-metafields__label">
                 {{ metafield_key | replace: '_', ' ' | capitalize }}:
               </dt>
@@ -45,6 +59,29 @@
                 {{ metafield_value }}
               </dd>
             </div>
+          {%- endunless -%}
+        {%- endfor -%}
+      {%- endif -%}
+      
+      {%- comment -%} Display variant meta-fields (if different from product) {%- endcomment -%}
+      {%- if variant_onesila_metafields -%}
+        {%- for metafield_pair in variant_onesila_metafields -%}
+          {%- assign metafield_key = metafield_pair[0] -%}
+          {%- assign metafield_value = metafield_pair[1] -%}
+          
+          {%- comment -%} Only show variant meta-fields that are different from product meta-fields {%- endcomment -%}
+          {%- assign product_value = onesila_metafields[metafield_key] -%}
+          {%- unless product_value == metafield_value -%}
+            {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
+              <div class="product-metafields__item product-metafields__item--variant" data-metafield-key="{{ metafield_key }}" data-metafield-type="variant">
+                <dt class="product-metafields__label">
+                  {{ metafield_key | replace: '_', ' ' | capitalize }}:
+                </dt>
+                <dd class="product-metafields__value">
+                  {{ metafield_value }}
+                </dd>
+              </div>
+            {%- endunless -%}
           {%- endunless -%}
         {%- endfor -%}
       {%- endif -%}
