@@ -1,0 +1,161 @@
+{%- doc -%}
+  Renders product meta-fields in a simple format for use in snippets or other templates.
+
+  @param {object} product - The product object
+  @param {object} variant - The variant object (optional)
+  @param {string} namespace - Filter by namespace (optional)
+  @param {string} keys - Comma-separated list of keys to display (optional)
+  @param {boolean} hide_empty - Hide empty meta-fields (default: true)
+  @param {string} layout - Layout style: 'list' or 'grid' (default: 'list')
+  @param {boolean} show_namespace - Show namespace in labels (default: false)
+
+  @example
+  {% render 'product-metafields-simple', product: product %}
+  
+  @example
+  {% render 'product-metafields-simple', product: product, variant: variant, namespace: 'custom' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign product = product | default: closest.product
+  assign variant = variant | default: product.selected_or_first_available_variant
+  assign namespace = namespace | default: ''
+  assign keys = keys | default: ''
+  assign hide_empty = hide_empty | default: true
+  assign layout = layout | default: 'list'
+  assign show_namespace = show_namespace | default: false
+  
+  # Get all meta-fields
+  assign product_metafields = product.metafields
+  assign variant_metafields = variant.metafields
+  assign all_metafields = product_metafields | concat: variant_metafields
+  
+  # Filter meta-fields
+  assign filtered_metafields = all_metafields
+  
+  if hide_empty
+    assign filtered_metafields = all_metafields | where: 'value', blank: false
+  endif
+  
+  if namespace != blank
+    assign filtered_metafields = filtered_metafields | where: 'namespace', namespace
+  endif
+  
+  if keys != blank
+    assign keys_array = keys | split: ','
+    assign filtered_metafields = filtered_metafields | where: 'key', keys_array
+  endif
+-%}
+
+{%- if filtered_metafields.size > 0 -%}
+  <div class="product-metafields-simple product-metafields-simple--{{ layout }}">
+    {%- for metafield in filtered_metafields -%}
+      {%- unless metafield.value == blank -%}
+        <div class="product-metafields-simple__item">
+          <span class="product-metafields-simple__label">
+            {%- if show_namespace -%}
+              {{ metafield.namespace }}.{{ metafield.key }}
+            {%- else -%}
+              {{ metafield.key | replace: '_', ' ' | capitalize }}
+            {%- endif -%}:
+          </span>
+          <span class="product-metafields-simple__value">
+            {%- case metafield.type -%}
+              {%- when 'file_reference' -%}
+                {%- if metafield.value.alt -%}
+                  <img src="{{ metafield.value | image_url: width: 200 }}" alt="{{ metafield.value.alt }}" width="200" height="auto" loading="lazy">
+                {%- else -%}
+                  <a href="{{ metafield.value.url }}" target="_blank" rel="noopener">{{ metafield.value.url | split: '/' | last }}</a>
+                {%- endif -%}
+              {%- when 'page_reference' -%}
+                <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
+              {%- when 'product_reference' -%}
+                <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
+              {%- when 'collection_reference' -%}
+                <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
+              {%- when 'variant_reference' -%}
+                <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
+              {%- when 'url' -%}
+                <a href="{{ metafield.value }}" target="_blank" rel="noopener">{{ metafield.value }}</a>
+              {%- when 'boolean' -%}
+                {% if metafield.value %}Yes{% else %}No{% endif %}
+              {%- when 'date' -%}
+                {{ metafield.value | date: '%B %d, %Y' }}
+              {%- when 'date_time' -%}
+                {{ metafield.value | date: '%B %d, %Y at %I:%M %p' }}
+              {%- when 'number_integer' -%}
+                {{ metafield.value | number_with_delimiter }}
+              {%- when 'number_decimal' -%}
+                {{ metafield.value | number_with_delimiter }}
+              {%- when 'money' -%}
+                {{ metafield.value | money }}
+              {%- when 'rating' -%}
+                {{ metafield.value.value }}/{{ metafield.value.scale_max }}
+              {%- when 'color' -%}
+                <span class="product-metafields-simple__color" style="background-color: {{ metafield.value }}"></span> {{ metafield.value }}
+              {%- when 'multi_line_text_field' -%}
+                {{ metafield.value | newline_to_br }}
+              {%- when 'rich_text_field' -%}
+                {{ metafield.value }}
+              {%- else -%}
+                {{ metafield.value }}
+            {%- endcase -%}
+          </span>
+        </div>
+      {%- endunless -%}
+    {%- endfor -%}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .product-metafields-simple {
+    display: flex;
+    flex-direction: column;
+    gap: var(--padding-2xs);
+  }
+  
+  .product-metafields-simple--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--padding-sm);
+  }
+  
+  .product-metafields-simple__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--padding-3xs);
+  }
+  
+  .product-metafields-simple--grid .product-metafields-simple__item {
+    border: 1px solid rgb(var(--color-foreground-rgb) / var(--opacity-10));
+    border-radius: var(--style-border-radius);
+    padding: var(--padding-sm);
+    background: rgb(var(--color-background-rgb) / var(--opacity-50));
+  }
+  
+  .product-metafields-simple__label {
+    font-weight: var(--font-weight-medium);
+    font-size: 0.9em;
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
+  }
+  
+  .product-metafields-simple__value {
+    word-break: break-word;
+  }
+  
+  .product-metafields-simple__color {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    border: 1px solid rgb(var(--color-foreground-rgb) / var(--opacity-20));
+    margin-right: var(--padding-2xs);
+    vertical-align: middle;
+  }
+  
+  @media screen and (max-width: 749px) {
+    .product-metafields-simple--grid {
+      grid-template-columns: 1fr;
+    }
+  }
+{% endstylesheet %}
