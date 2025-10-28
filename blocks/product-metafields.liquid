@@ -3,33 +3,14 @@
   assign product = closest.product
   assign selected_variant = product.selected_or_first_available_variant
   
-  # Get all product meta-fields
-  assign product_metafields = product.metafields
+  # Get onesila meta-fields from product
+  assign onesila_metafields = product.metafields.onesila
   
-  # Get variant meta-fields if variant is selected
-  assign variant_metafields = selected_variant.metafields
-  
-  # Combine all meta-fields for display
-  assign all_metafields = product_metafields | concat: variant_metafields
-  
-  # Filter meta-fields based on settings
-  assign filtered_metafields = all_metafields
-  
-  if block_settings.hide_empty_metafields
-    assign filtered_metafields = all_metafields | where: 'value', blank: false
-  endif
-  
-  if block_settings.metafield_namespace != blank
-    assign filtered_metafields = filtered_metafields | where: 'namespace', block_settings.metafield_namespace
-  endif
-  
-  if block_settings.metafield_keys != blank
-    assign keys_array = block_settings.metafield_keys | split: ','
-    assign filtered_metafields = filtered_metafields | where: 'key', keys_array
-  endif
+  # Get onesila meta-fields from variant (if any)
+  assign variant_onesila_metafields = selected_variant.metafields.onesila
 -%}
 
-{%- if filtered_metafields.size > 0 -%}
+{%- if onesila_metafields or variant_onesila_metafields -%}
   <div
     class="product-metafields spacing-style"
     style="{% render 'spacing-style', settings: block_settings %}"
@@ -48,89 +29,26 @@
       </p>
     {% endif %}
     
-    <div class="product-metafields__list {{ block_settings.layout }}">
-      {%- for metafield in filtered_metafields -%}
-        {%- unless metafield.value == blank -%}
-          <div class="product-metafields__item" data-metafield-namespace="{{ metafield.namespace }}" data-metafield-key="{{ metafield.key }}">
-            <dt class="product-metafields__label">
-              {%- if block_settings.show_namespace -%}
-                {{ metafield.namespace }}.{{ metafield.key }}
-              {%- else -%}
-                {{ metafield.key | replace: '_', ' ' | capitalize }}
-              {%- endif -%}
-            </dt>
-            <dd class="product-metafields__value">
-              {%- case metafield.type -%}
-                {%- when 'file_reference' -%}
-                  {%- if metafield.value.alt -%}
-                    <img 
-                      src="{{ metafield.value | image_url: width: block_settings.image_width }}"
-                      alt="{{ metafield.value.alt }}"
-                      width="{{ block_settings.image_width }}"
-                      height="auto"
-                      loading="lazy"
-                    >
-                  {%- else -%}
-                    <a href="{{ metafield.value.url }}" target="_blank" rel="noopener">
-                      {{ metafield.value.alt | default: metafield.value.url | split: '/' | last }}
-                    </a>
-                  {%- endif -%}
-                {%- when 'page_reference' -%}
-                  <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
-                {%- when 'product_reference' -%}
-                  <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
-                {%- when 'collection_reference' -%}
-                  <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
-                {%- when 'variant_reference' -%}
-                  <a href="{{ metafield.value.url }}">{{ metafield.value.title }}</a>
-                {%- when 'url' -%}
-                  <a href="{{ metafield.value }}" target="_blank" rel="noopener">{{ metafield.value }}</a>
-                {%- when 'json' -%}
-                  <pre class="product-metafields__json">{{ metafield.value | json }}</pre>
-                {%- when 'boolean' -%}
-                  <span class="product-metafields__boolean {% if metafield.value %}product-metafields__boolean--true{% else %}product-metafields__boolean--false{% endif %}">
-                    {% if metafield.value %}✓{% else %}✗{% endif %}
-                  </span>
-                {%- when 'date' -%}
-                  {{ metafield.value | date: block_settings.date_format }}
-                {%- when 'date_time' -%}
-                  {{ metafield.value | date: block_settings.date_format }}
-                {%- when 'number_integer' -%}
-                  {{ metafield.value | number_with_delimiter }}
-                {%- when 'number_decimal' -%}
-                  {{ metafield.value | number_with_delimiter }}
-                {%- when 'money' -%}
-                  {{ metafield.value | money }}
-                {%- when 'weight' -%}
-                  {{ metafield.value | weight_with_unit }}
-                {%- when 'volume' -%}
-                  {{ metafield.value | volume_with_unit }}
-                {%- when 'dimension' -%}
-                  {{ metafield.value | dimension_with_unit }}
-                {%- when 'rating' -%}
-                  <div class="product-metafields__rating">
-                    <span class="product-metafields__rating-value">{{ metafield.value.value }}</span>
-                    <span class="product-metafields__rating-scale">/ {{ metafield.value.scale_max }}</span>
-                  </div>
-                {%- when 'color' -%}
-                  <div class="product-metafields__color">
-                    <span class="product-metafields__color-swatch" style="background-color: {{ metafield.value }}"></span>
-                    <span class="product-metafields__color-value">{{ metafield.value }}</span>
-                  </div>
-                {%- when 'single_line_text_field' -%}
-                  {{ metafield.value | escape }}
-                {%- when 'multi_line_text_field' -%}
-                  <div class="product-metafields__multiline">{{ metafield.value | newline_to_br }}</div>
-                {%- when 'rich_text_field' -%}
-                  <div class="product-metafields__richtext">{{ metafield.value }}</div>
-                {%- else -%}
-                  {{ metafield.value }}
-              {%- endcase -%}
-            </dd>
-          </div>
-        {%- endunless -%}
-      {%- endfor -%}
-    </div>
+    <dl class="product-metafields__list">
+      {%- comment -%} Display product meta-fields {%- endcomment -%}
+      {%- if onesila_metafields -%}
+        {%- for metafield_pair in onesila_metafields -%}
+          {%- assign metafield_key = metafield_pair[0] -%}
+          {%- assign metafield_value = metafield_pair[1] -%}
+          
+          {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
+            <div class="product-metafields__item">
+              <dt class="product-metafields__label">
+                {{ metafield_key | replace: '_', ' ' | capitalize }}:
+              </dt>
+              <dd class="product-metafields__value">
+                {{ metafield_value }}
+              </dd>
+            </div>
+          {%- endunless -%}
+        {%- endfor -%}
+      {%- endif -%}
+    </dl>
   </div>
 {%- endif -%}
 
@@ -141,14 +59,16 @@
   }
   
   .product-metafields__heading {
-    margin: 0 0 var(--padding-sm) 0;
+    margin: 0 0 var(--padding-md) 0;
     font-weight: var(--font-weight-bold);
+    color: var(--color-foreground);
   }
   
   .product-metafields__description {
-    margin: 0 0 var(--padding-md) 0;
+    margin: 0 0 var(--padding-lg) 0;
     color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
-    font-size: 0.9em;
+    font-size: 0.95em;
+    line-height: 1.5;
   }
   
   .product-metafields__list {
@@ -157,114 +77,47 @@
     gap: var(--padding-sm);
   }
   
-  .product-metafields__list.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--padding-md);
-  }
-  
   .product-metafields__item {
     display: flex;
-    flex-direction: column;
-    gap: var(--padding-2xs);
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--padding-sm) 0;
+    border-bottom: 1px solid rgb(var(--color-foreground-rgb) / var(--opacity-10));
   }
   
-  .product-metafields__list.grid .product-metafields__item {
-    border: 1px solid rgb(var(--color-foreground-rgb) / var(--opacity-10));
-    border-radius: var(--style-border-radius);
-    padding: var(--padding-sm);
-    background: rgb(var(--color-background-rgb) / var(--opacity-50));
+  .product-metafields__item:last-child {
+    border-bottom: none;
   }
   
   .product-metafields__label {
     font-weight: var(--font-weight-medium);
-    font-size: 0.9em;
     color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
     margin: 0;
+    flex: 0 0 40%;
+    padding-right: var(--padding-sm);
   }
   
   .product-metafields__value {
     margin: 0;
     word-break: break-word;
-  }
-  
-  .product-metafields__json {
-    background: rgb(var(--color-foreground-rgb) / var(--opacity-5));
-    padding: var(--padding-sm);
-    border-radius: var(--style-border-radius);
-    font-family: monospace;
-    font-size: 0.8em;
-    overflow-x: auto;
-    white-space: pre-wrap;
-  }
-  
-  .product-metafields__boolean {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5em;
-    height: 1.5em;
-    border-radius: 50%;
-    font-weight: bold;
-  }
-  
-  .product-metafields__boolean--true {
-    background: rgb(var(--color-success-rgb) / var(--opacity-20));
-    color: var(--color-success);
-  }
-  
-  .product-metafields__boolean--false {
-    background: rgb(var(--color-error-rgb) / var(--opacity-20));
-    color: var(--color-error);
-  }
-  
-  .product-metafields__rating {
-    display: flex;
-    align-items: center;
-    gap: var(--padding-2xs);
-  }
-  
-  .product-metafields__rating-value {
-    font-weight: var(--font-weight-bold);
-  }
-  
-  .product-metafields__rating-scale {
-    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
-  }
-  
-  .product-metafields__color {
-    display: flex;
-    align-items: center;
-    gap: var(--padding-sm);
-  }
-  
-  .product-metafields__color-swatch {
-    width: 1.5em;
-    height: 1.5em;
-    border-radius: var(--style-border-radius);
-    border: 1px solid rgb(var(--color-foreground-rgb) / var(--opacity-20));
-    display: inline-block;
-  }
-  
-  .product-metafields__multiline {
-    white-space: pre-line;
-  }
-  
-  .product-metafields__richtext {
-    line-height: 1.5;
-  }
-  
-  .product-metafields__richtext p {
-    margin: 0 0 var(--padding-2xs) 0;
-  }
-  
-  .product-metafields__richtext p:last-child {
-    margin-bottom: 0;
+    font-weight: var(--font-weight-normal);
+    color: var(--color-foreground);
+    flex: 1;
   }
   
   @media screen and (max-width: 749px) {
-    .product-metafields__list.grid {
-      grid-template-columns: 1fr;
+    .product-metafields__item {
+      flex-direction: column;
+      gap: var(--padding-2xs);
+    }
+    
+    .product-metafields__label {
+      flex: none;
+      padding-right: 0;
+    }
+    
+    .product-metafields__value {
+      flex: none;
     }
   }
 {% endstylesheet %}
@@ -284,7 +137,7 @@
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "Product Details"
+      "default": "Product Specifications"
     },
     {
       "type": "select",
@@ -323,121 +176,6 @@
       "id": "description",
       "label": "Description",
       "info": "Optional description text to display above the meta-fields"
-    },
-    {
-      "type": "header",
-      "content": "Display Options"
-    },
-    {
-      "type": "select",
-      "id": "layout",
-      "label": "Layout",
-      "options": [
-        {
-          "value": "list",
-          "label": "List"
-        },
-        {
-          "value": "grid",
-          "label": "Grid"
-        }
-      ],
-      "default": "list"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_namespace",
-      "label": "Show namespace in labels",
-      "default": false,
-      "info": "Display the full namespace.key format instead of just the key"
-    },
-    {
-      "type": "checkbox",
-      "id": "hide_empty_metafields",
-      "label": "Hide empty meta-fields",
-      "default": true,
-      "info": "Don't display meta-fields that have no value"
-    },
-    {
-      "type": "header",
-      "content": "Filtering"
-    },
-    {
-      "type": "text",
-      "id": "metafield_namespace",
-      "label": "Namespace filter",
-      "info": "Only show meta-fields from this namespace (leave blank to show all)"
-    },
-    {
-      "type": "text",
-      "id": "metafield_keys",
-      "label": "Keys filter",
-      "info": "Comma-separated list of meta-field keys to display (leave blank to show all)"
-    },
-    {
-      "type": "header",
-      "content": "Formatting"
-    },
-    {
-      "type": "text",
-      "id": "date_format",
-      "label": "Date format",
-      "default": "%B %d, %Y",
-      "info": "Format for date and date_time meta-fields"
-    },
-    {
-      "type": "range",
-      "id": "image_width",
-      "label": "Image width",
-      "min": 100,
-      "max": 800,
-      "step": 50,
-      "default": 300,
-      "info": "Width for file_reference images"
-    },
-    {
-      "type": "header",
-      "content": "Spacing"
-    },
-    {
-      "type": "range",
-      "id": "padding-block-start",
-      "label": "Top padding",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "padding-block-end",
-      "label": "Bottom padding",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "padding-inline-start",
-      "label": "Left padding",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "padding-inline-end",
-      "label": "Right padding",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
     }
   ],
   "presets": [
