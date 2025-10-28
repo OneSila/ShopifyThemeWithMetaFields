@@ -70,7 +70,8 @@ export default class ProductMetafields extends Component {
     
     // Show variant meta-fields that are different from product meta-fields
     Object.entries(variantMetafields).forEach(([key, value]) => {
-      if (value !== null && value !== '' && value !== undefined) {
+      // Skip keys containing 'amazon'
+      if (!key.toLowerCase().includes('amazon') && value !== null && value !== '' && value !== undefined) {
         // Check if this variant meta-field is different from the product meta-field
         const productItem = metafieldsContainer.querySelector(`[data-metafield-key="${key}"][data-metafield-type="product"]`);
         const productValue = productItem ? productItem.querySelector('.product-metafields__value')?.textContent?.trim() : null;

@@ -50,18 +50,21 @@
           {%- assign metafield_key = metafield_pair[0] -%}
           {%- assign metafield_value = metafield_pair[1] -%}
           
-          {%- comment -%} Only show variant meta-fields that are different from product meta-fields {%- endcomment -%}
-          {%- assign product_value = onesila_metafields[metafield_key] -%}
-          {%- unless product_value == metafield_value -%}
-            {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
-              <div class="product-metafields__item product-metafields__item--variant" data-metafield-key="{{ metafield_key }}" data-metafield-type="variant">
-                <dt class="product-metafields__label">
-                  {{ metafield_key | replace: '_', ' ' | capitalize }}:
-                </dt>
-                <dd class="product-metafields__value">
-                  {{ metafield_value }}
-                </dd>
-              </div>
+          {%- comment -%} Skip keys containing 'amazon' {%- endcomment -%}
+          {%- unless metafield_key contains 'amazon' -%}
+            {%- comment -%} Only show variant meta-fields that are different from product meta-fields {%- endcomment -%}
+            {%- assign product_value = onesila_metafields[metafield_key] -%}
+            {%- unless product_value == metafield_value -%}
+              {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
+                <div class="product-metafields__item product-metafields__item--variant" data-metafield-key="{{ metafield_key }}" data-metafield-type="variant">
+                  <dt class="product-metafields__label">
+                    {{ metafield_key | replace: '_', ' ' | capitalize }}:
+                  </dt>
+                  <dd class="product-metafields__value">
+                    {{ metafield_value }}
+                  </dd>
+                </div>
+              {%- endunless -%}
             {%- endunless -%}
           {%- endunless -%}
         {%- endfor -%}
@@ -73,15 +76,18 @@
           {%- assign metafield_key = metafield_pair[0] -%}
           {%- assign metafield_value = metafield_pair[1] -%}
           
-          {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
-            <div class="product-metafields__item" data-metafield-key="{{ metafield_key }}" data-metafield-type="product">
-              <dt class="product-metafields__label">
-                {{ metafield_key | replace: '_', ' ' | capitalize }}:
-              </dt>
-              <dd class="product-metafields__value">
-                {{ metafield_value }}
-              </dd>
-            </div>
+          {%- comment -%} Skip keys containing 'amazon' {%- endcomment -%}
+          {%- unless metafield_key contains 'amazon' -%}
+            {%- unless metafield_value == blank or metafield_value == null or metafield_value == '' -%}
+              <div class="product-metafields__item" data-metafield-key="{{ metafield_key }}" data-metafield-type="product">
+                <dt class="product-metafields__label">
+                  {{ metafield_key | replace: '_', ' ' | capitalize }}:
+                </dt>
+                <dd class="product-metafields__value">
+                  {{ metafield_value }}
+                </dd>
+              </div>
+            {%- endunless -%}
           {%- endunless -%}
         {%- endfor -%}
       {%- endif -%}
